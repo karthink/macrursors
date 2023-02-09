@@ -79,13 +79,20 @@
    (t (funcall (intern (format "macrursors-sel--%s"
                                (car macrursors-sel-types))))))
   ;; Add new overlays inside
-  (when (and search-start search-end
+  (when (and macrursors-mode
+             search-start search-end
              (or (>= search-start (overlay-start mouse-secondary-overlay))
                  (<= search-end   (overlay-end mouse-secondary-overlay))))
-    ;; TODO: Repeat search with the right string
     (when defining-kbd-macro
       (end-kbd-macro)
-      (macrursors-start)))
+      (macrursors-start))
+    (pcase macrursors--instance
+      ((pred stringp) (macrursors-mark-all-instances-of macrursors--instance))
+      ((pred symbolp) (funcall
+                       (intern
+                        (concat "macrursors-mark-all-"
+                                (symbol-name macrursors--instance)
+                                "s"))))))
   
   ;; Remove overlays outside
   (macrursors-sel--filter-cursors)
@@ -127,10 +134,11 @@
     (save-excursion
       (goto-char search-start)
       (macrursors--mark-all-instances-of regexp orig-point search-end))
+    (setq macrursors--instance regexp)
     (macrursors-start)))
 
 (define-key macrursors-mark-map (kbd "SPC") #'macrursors-sel-cycle)
-(define-key macrursors-mark-map [remap keyboard-quit] #'macrursors-sel-clear)
+(define-key macrursors-mark-map (kbd "C-g") #'macrursors-sel-clear)
 (define-key isearch-mode-map (kbd "C-;") #'macrursors-sel-mark-from-isearch)
 
 (provide 'macrursors-sel)
