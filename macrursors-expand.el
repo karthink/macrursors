@@ -12,6 +12,17 @@
       (er/expand-region arg))
     ;; (secondary-selection-from-region)
     (macrursors-sel--region))
+  (when macrursors-mode
+    (when defining-kbd-macro
+      (end-kbd-macro)
+      (macrursors-start))
+    (pcase macrursors--instance
+      ((pred stringp) (macrursors-mark-all-instances-of macrursors--instance))
+      ((pred symbolp) (funcall
+                       (intern
+                        (concat "macrursors-mark-all-"
+                                (symbol-name macrursors--instance)
+                                "s"))))))
   (macrursors-sel--filter-cursors)
   (set-transient-map macrursors-sel-map))
 
