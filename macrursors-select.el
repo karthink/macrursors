@@ -72,9 +72,7 @@ Restart `macrursors-mode' if necessary."
              search-start search-end
              (or (>= search-start (overlay-start mouse-secondary-overlay))
                  (<= search-end   (overlay-end mouse-secondary-overlay))))
-    (when defining-kbd-macro
-      (end-kbd-macro)
-      (macrursors-start))
+    (macrursors-early-quit)
     (pcase macrursors--instance
       ((pred stringp) (macrursors-mark-all-instances-of macrursors--instance))
       ((pred symbolp) (funcall
