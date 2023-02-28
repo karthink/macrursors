@@ -100,19 +100,17 @@ repeatedly by pressing `\\<macrursors-mark-map>\\[macrursors-select]'."
       (let ((types (cl-some (lambda (entry) (and (derived-mode-p (car entry))
                                             (cdr entry)))
                             macrursors-select-types)))
-        (if (macrursors--inside-secondary-selection)
-            (when-let ((sel-type
-                        (or
-                         (get-char-property (max (1- (point)) (point-min)) 'macrursors-select-type)
-                         (get-char-property (min (1+ (point)) (point-max)) 'macrursors-select-type))))
-              (setq search-start (overlay-start mouse-secondary-overlay)
-                    search-end (overlay-end mouse-secondary-overlay))
-              (macrursors-select--type
-                (car (or (cl-loop for (head . tail) on types
-                                  when (eq sel-type head)
-                                  return tail)
-                         types))))
-          (macrursors-select--type (car types)))))
+        (setq search-start  (overlay-start mouse-secondary-overlay)
+              search-end    (overlay-end mouse-secondary-overlay))
+        (cl-loop with sel-type =
+                     (or
+                      (get-char-property (max (1- (point)) (point-min)) 'macrursors-select-type)
+                      (get-char-property (min (1+ (point)) (point-max)) 'macrursors-select-type))
+                     for (head . tail) on (cons nil types)
+                     when (eq sel-type head)
+                     if (macrursors-select--type (or (car tail) (car types)))
+                     return t
+                     else do (setq sel-type (car tail)))))
     ;; Remove cursors outside
     (macrursors-select--filter-cursors)
     ;; Add new cursors inside
