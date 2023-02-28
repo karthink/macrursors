@@ -238,7 +238,8 @@ beginning and ending positions."
         (dotimes (_ (- arg))
           (and macrursors--overlays
                (delete-overlay (car macrursors--overlays)))
-          (cl-callf cdr macrursors--overlays)))
+          (cl-callf cdr macrursors--overlays))
+        (macrursors-start))
        ((stringp region) ; Mark next instance of some string
         (goto-char end)
         (dotimes (_ arg)
@@ -274,7 +275,8 @@ beginning and ending positions."
         (dotimes (_ (- arg))
           (and macrursors--overlays
                (delete-overlay (car macrursors--overlays)))
-          (cl-callf cdr macrursors--overlays)))
+          (cl-callf cdr macrursors--overlays))
+        (macrursors-start))
        ((stringp region) ; Mark next instance of some string
         (goto-char beg)
         (dotimes (_ arg)
