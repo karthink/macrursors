@@ -6,7 +6,8 @@
   (interactive "p")
   (unless (featurep 'expand-region)
     (user-error "`macrursors-select-expand' requires `expand-region'."))
-  (let ((search-start) (search-end))
+  (let ((search-start) (search-end)
+        (transient-mark-mode `(only . ,transient-mark-mode)))
     (save-excursion
       (when (macrursors--inside-secondary-selection)
         (setq search-start (overlay-start mouse-secondary-overlay)
