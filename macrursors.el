@@ -586,26 +586,23 @@ Else, mark all lines."
               (undo-amalgamate-change-group ,handle))
           (cancel-change-group ,handle))))))
 
-(defun macrursors--apply-command (overlays cmd &optional args)
-  (when overlays
-    (save-excursion
-      (dolist (ov overlays)
-        (goto-char (overlay-start ov))
-        (if (commandp cmd)
-            (call-interactively cmd)
-          (apply cmd args))))))
-
-(defun macrursors-apply-command (cmd &rest args)
-  (macrursors--wrap-collapse-undo
-    (macrursors--apply-command
-     macrursors--overlays
-     cmd args)))
+(defun macrursors--advance-cursor (overlays)
+  "Return a function to move through OVERLAYS."
+  (let ((remaining overlays))
+    (lambda ()
+      (goto-char (overlay-start (car remaining)))
+      (setq remaining (cdr remaining))
+      t)))
 
 (defun macrursors--apply-kmacros ()
   "Apply kmacros."
   (interactive)
-  (macrursors-apply-command #'execute-kbd-macro
-                            last-kbd-macro))
+  (macrursors--wrap-collapse-undo
+    (save-excursion
+      (execute-kbd-macro last-kbd-macro
+                         (length macrursors--overlays)
+                         (macrursors--advance-cursor
+                          macrursors--overlays)))))
 
 (defun macrursors--toggle-modes (func &rest args)
   (cond
