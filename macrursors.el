@@ -291,7 +291,7 @@ beginning and ending positions."
 
 (defun macrursors--forward-number ()
   (interactive)
-  (let ((closest-ahead (save-excursion (search-forward-regexp "[0-9]" nil t))))
+  (let ((closest-ahead (save-excursion (search-forward-regexp "[0-9]*\\.?[0-9]+" nil t))))
     (when closest-ahead
       (push-mark)
       (goto-char closest-ahead))))
@@ -486,7 +486,7 @@ beginning and ending positions."
   (when mark-active (deactivate-mark))
   (let ((start (if (macrursors--inside-secondary-selection)
 		   (overlay-start mouse-secondary-overlay)
-		 0))
+		 (point-min)))
 	(end (if (macrursors--inside-secondary-selection)
 		 (overlay-end mouse-secondary-overlay)
 	       (point-max)))
@@ -503,7 +503,7 @@ beginning and ending positions."
 		    (forward-line 1)
 		    (move-to-column col)
 		    (not (= (point) curr)))
-		  (<= (point) end))
+		  (< (point) end))
 	(macrursors--add-overlay-at-point (point))))
     (setq macrursors--instance 'line)
     (macrursors-start)))
