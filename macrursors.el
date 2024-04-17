@@ -30,6 +30,7 @@
 
 (defvar-local macrursors--overlays nil)
 (defvar-local macrursors--insert-enter-key nil)
+(defvar-local macrursors--hideshow-overlays nil)
 
 (defgroup macrursors nil
   "Macrursors, a multi-edit tool for GNU Emacs."
@@ -137,7 +138,10 @@ and re-enable them in `macrursors-post-finish-hook'."
 (defun macrursors--remove-overlays ()
   "Remove all overlays from current buffer."
   (mapc #'delete-overlay macrursors--overlays)
-  (setq macrursors--overlays nil))
+  (setq macrursors--overlays nil)
+  (when macrursors--hideshow-overlays
+    (mapc #'delete-overlay macrursors--hideshow-overlays)
+    (setq macrursors--hideshow-overlays nil)))
 
 (defun macrursors--get-overlay-positions (&optional overlays)
   "Return a list with the position of all the cursors in `macrursors--overlays'.
@@ -184,6 +188,41 @@ beginning and ending positions."
       (goto-char symb-end)
       (list (concat "\\_<" (regexp-quote (substring-no-properties symb)) "\\_>")
             symb-beg symb-end)))))
+
+(defun macrursors--toggle-hideshow-overlay (begin end)
+  (pcase-let ((`(,_ . ,ov) (get-char-property-and-overlay
+                            (1+ begin) 'macrursors-hideshow)))
+    (if ov
+        (move-overlay ov begin end)
+      (setq ov (make-overlay begin end))
+      (overlay-put ov 'macrursors-hideshow t)
+      (push ov macrursors--hideshow-overlays))
+    (overlay-put ov 'display
+                 (if (overlay-get ov 'display) nil
+                   (propertize "⋮\n" 'face 'shadow)))))
+
+(defun macrursors-hideshow (&optional context)
+  (interactive "p")
+  (unless executing-kbd-macro
+    (save-excursion
+      (cl-loop
+       with context = (or (abs context) 1)
+       with end = (point-max)
+       for pos in (cl-sort (cons (point) (macrursors--get-overlay-positions))
+                           #'>)
+       for begin = (progn (goto-char pos)
+                          (forward-line (1+ context))
+                          (point))
+       if (> end begin) do
+       (macrursors--toggle-hideshow-overlay begin end)
+       do
+       (goto-char pos)
+       (forward-line (- context))
+       (setq end (point))
+       finally do
+       (beginning-of-line)
+       (if (> (point) (point-min))
+           (macrursors--toggle-hideshow-overlay (point-min) (point)))))))
 
 (defun macrursors--mark-all-instances-of (string orig-point &optional end)
   (let ((case-fold-search))
