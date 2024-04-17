@@ -178,7 +178,7 @@ beginning and ending positions."
             (cond
              ((stringp region) (- (point) (length region)))
              ((symbolp region) (car (bounds-of-thing-at-point region)))
-             (t end))
+             (t nil))
             (point))))
    ;; Mark symbol at point
    ((when-let* ((symb     (thing-at-point 'symbol))
@@ -310,7 +310,7 @@ beginning and ending positions."
   (pcase-let ((search-start (if (macrursors--inside-secondary-selection)
 		          (overlay-start mouse-secondary-overlay)
 		       0))
-              (`(,region ,beg ,end) (macrursors--instance-with-bounds)))
+              (`(,region ,beg ,_) (macrursors--instance-with-bounds)))
     (save-excursion
       (cond
        ((< arg 0) ; Remove cursors
