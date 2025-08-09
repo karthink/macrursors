@@ -122,16 +122,16 @@ and re-enable them in `macrursors-post-finish-hook'."
   "Create an overlay to draw a fake cursor at POS."
   (let ((ov (make-overlay pos (1+ pos))))
     (overlay-put ov 'face
-		 (cond
-		  ((not macrursors-match-cursor-style) 'macrursors-cursor-face)
-		  ((let ((cursor-type
-			  (if (eq cursor-type t)
-			      (frame-parameter nil 'cursor-type)
-			    cursor-type)))
-		     (or (eq cursor-type 'bar)
-			 (and (listp cursor-type)
-			      (eq (car cursor-type) 'bar)))) 'macrursors-cursor-bar-face)
-		  (t 'macrursors-cursor-face)))
+                 (cond
+                  ((not macrursors-match-cursor-style) 'macrursors-cursor-face)
+                  ((let ((cursor-type
+                          (if (eq cursor-type t)
+                              (frame-parameter nil 'cursor-type)
+                            cursor-type)))
+                     (or (eq cursor-type 'bar)
+                         (and (listp cursor-type)
+                              (eq (car cursor-type) 'bar)))) 'macrursors-cursor-bar-face)
+                  (t 'macrursors-cursor-face)))
     (overlay-put ov 'macrursors-type 'cursor)
     (push ov macrursors--overlays)))
 
@@ -235,7 +235,7 @@ beginning and ending positions."
   (interactive)
   (pcase-let* ((selection-p (macrursors--inside-secondary-selection))
                (start (if selection-p
-	                  (overlay-start mouse-secondary-overlay)
+                          (overlay-start mouse-secondary-overlay)
                         0))
                (end (and selection-p
                          (overlay-end mouse-secondary-overlay)))
@@ -268,10 +268,24 @@ beginning and ending positions."
 
 ;;;###autoload
 (defun macrursors-mark-next-instance-of (&optional arg)
+  "Create cursors on the ARG next instance of a region, symbol or line.
+
+When the region is active, mark the next occurrence(s) of the region
+contents.
+
+Otherwise if there is a symbol at point, mark the next occurrence(s) of
+that.
+
+Otherwise mark the next line(s).
+
+With a negative prefix-ARG, remove the last ARG cursors placed.
+
+With zero prefix-ARG, create cursors on all remaining matches to the end
+of the buffer."
   (interactive "p")
   (when defining-kbd-macro (end-kbd-macro))
   (pcase-let ((search-end (and (macrursors--inside-secondary-selection)
-                         (overlay-end mouse-secondary-overlay)))
+                               (overlay-end mouse-secondary-overlay)))
               (`(,region ,_ ,end) (macrursors--instance-with-bounds)))
     (save-excursion
       (cond
@@ -305,11 +319,25 @@ beginning and ending positions."
 
 ;;;###autoload
 (defun macrursors-mark-previous-instance-of (&optional arg)
+  "Create cursors on the ARG previous instance(s) of a region, symbol or line.
+
+When the region is active, mark the previous occurrence(s) of
+the region contents.
+
+Otherwise if there is a symbol at point, mark the previous occurrence(s)
+of that.
+
+Otherwise mark the previous line(s).
+
+With a negative prefix-ARG, remove the last ARG cursors placed.
+
+With zero prefix-ARG, create cursors on all remaining matches to
+the beginning of the buffer."
   (interactive "p")
   (when defining-kbd-macro (end-kbd-macro))
   (pcase-let ((search-start (if (macrursors--inside-secondary-selection)
-		          (overlay-start mouse-secondary-overlay)
-		       0))
+                               (overlay-start mouse-secondary-overlay)
+                             0))
               (`(,region ,beg ,_) (macrursors--instance-with-bounds)))
     (save-excursion
       (cond
@@ -329,7 +357,7 @@ beginning and ending positions."
        (t (macrursors-mark-previous-line arg search-start))))))
 
 (defun macrursors--forward-number ()
-  (interactive)
+  "Move point to the next number ahead in the buffer."
   (let ((closest-ahead (save-excursion (search-forward-regexp "[0-9]*\\.?[0-9]+" nil t))))
     (when closest-ahead
       (push-mark)
@@ -353,7 +381,7 @@ beginning and ending positions."
   (let* ((regexp (macrursors--isearch-regexp))
          (selection-p (macrursors--inside-secondary-selection))
          (search-start (if selection-p
-		           (overlay-start mouse-secondary-overlay)
+                           (overlay-start mouse-secondary-overlay)
                          0))
          (search-end (and selection-p
                           (overlay-end mouse-secondary-overlay)))
@@ -369,6 +397,16 @@ beginning and ending positions."
 
 ;;;###autoload
 (defun macrursors-mark-next-from-isearch (&optional arg)
+  "Create cursors on the ARG next occurrences of the current Isearch
+pattern.
+
+TODO With a negative prefix-arg, remove the last ARG cursors placed.
+
+With zero prefix-arg, create cursors on all remaining matches in the
+forward direction of the Isearch.
+
+SEARCH-END is a bound; it is the end point of an active secondary
+selection if one exists."
   (interactive "p")
   (let* ((regexp (macrursors--isearch-regexp))
          (search-end (and (macrursors--inside-secondary-selection)
@@ -383,12 +421,21 @@ beginning and ending positions."
 
 ;;;###autoload
 (defun macrursors-mark-previous-from-isearch (&optional arg)
+  "Create cursors on the ARG previous occurrences of the current Isearch
+pattern.
+
+TODO With a negative prefix-arg, remove the last ARG cursors placed.
+
+With zero prefix-arg, create cursors on all preceding matches in the
+backward direction of the Isearch.
+
+SEARCH-START is a bound; it is the start point of an active secondary
+selection if one exists."
   (interactive "p")
   (let* ((regexp (macrursors--isearch-regexp))
          (search-start (and (macrursors--inside-secondary-selection)
-                          (overlay-start mouse-secondary-overlay)))
-         orig-point)
-    (setq orig-point (min (point) isearch-other-end))
+                            (overlay-start mouse-secondary-overlay)))
+         (orig-point (min (point) isearch-other-end)))
     (goto-char (max (point) isearch-other-end))
     (isearch-exit)
     (save-excursion
@@ -407,66 +454,74 @@ beginning and ending positions."
      (when mark-active (deactivate-mark))
      (let ((end-of-thing (cdr (bounds-of-thing-at-point ,thing))))
        (if end-of-thing
-	   (goto-char end-of-thing)
-	 (funcall ,func)))
+           (goto-char end-of-thing)
+         (funcall ,func)))
      (let ((orig-point (point))
-	   (start (if (macrursors--inside-secondary-selection)
-		      (overlay-start mouse-secondary-overlay)
-		    0))
-	   (end (if (macrursors--inside-secondary-selection)
-		    (overlay-end mouse-secondary-overlay)
-		  (point-max))))
+           (start (if (macrursors--inside-secondary-selection)
+                      (overlay-start mouse-secondary-overlay)
+                    0))
+           (end (if (macrursors--inside-secondary-selection)
+                    (overlay-end mouse-secondary-overlay)
+                  (point-max))))
        (save-excursion
-	 (goto-char start)
-	 (while (and (let ((curr (point)))
-		     (funcall ,func)
-		     (not (= (point) curr)))
-		   (<= (point) end))
-	   (unless (= (point) orig-point)
-	     (macrursors--add-overlay-at-point (point)))))
+         (goto-char start)
+         (while (and (let ((curr (point)))
+                     (funcall ,func)
+                     (not (= (point) curr)))
+                   (<= (point) end))
+           (unless (= (point) orig-point)
+             (macrursors--add-overlay-at-point (point)))))
        (setq macrursors--instance ,thing)
        (macrursors-start))))
 
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-words
-			    'word
-			    #'forward-word)
+                            'word
+                            #'forward-word)
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-symbols
-			    'symbol
-			    (lambda ()
-			      (call-interactively #'forward-symbol)))
+                            'symbol
+                            (lambda ()
+                              (call-interactively #'forward-symbol)))
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-lists
-			    'list
-			    #'forward-list)
+                            'list
+                            #'forward-list)
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-sexps
-			    'sexp
-			    #'forward-sexp)
+                            'sexp
+                            #'forward-sexp)
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-defuns
-			    'defun
-			    #'end-of-defun)
+                            'defun
+                            #'end-of-defun)
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-numbers
-			    'number
-			    #'macrursors--forward-number)
+                            'number
+                            #'macrursors--forward-number)
 ;;;###autoload
 (macrursors--defun-mark-all macrursors-mark-all-sentences
-			    'sentence
-			    #'forward-sentence)
+                            'sentence
+                            #'forward-sentence)
 ;; FIXME there is no forward-url function
 ;; (macrursors--defun-mark-all macrursors-mark-all-urls
-;; 			    'url
-;; 			    #'forward-url)
+;;                          'url
+;;                          #'forward-url)
 ;; FIXME there is no forward-email function
 ;; (macrursors--defun-mark-all macrursors-mark-all-sexp
-;; 			    'word
-;; 			    #'forward-sexp)
+;;                          'word
+;;                          #'forward-sexp)
 
 ;;;###autoload
 (defun macrursors-mark-next-line (arg &optional search-end)
+  "Create cursors on the next ARG lines.
+
+With negative prefix-arg, remove the last ARG cursors placed.
+
+With zero prefix-arg, create cursors on all lines to the end of the
+buffer.
+
+SEARCH-END is a bound."
   (interactive (list (prefix-numeric-value current-prefix-arg)
                      (and (macrursors--inside-secondary-selection)
                           (overlay-end mouse-secondary-overlay))))
@@ -494,6 +549,14 @@ beginning and ending positions."
 
 ;;;###autoload
 (defun macrursors-mark-previous-line (arg &optional search-beg)
+  "Create cursors on the previous ARG lines.
+
+With negative prefix-arg, remove the last ARG cursors placed.
+
+With zero prefix-arg, create cursors on all lines to the beginning of
+the buffer.
+
+SEARCH-BEG is a bound."
   (interactive (list (prefix-numeric-value current-prefix-arg)
                      (and (macrursors--inside-secondary-selection)
                           (overlay-start mouse-secondary-overlay))))
@@ -524,33 +587,32 @@ beginning and ending positions."
   (interactive)
   (when mark-active (deactivate-mark))
   (let ((start (if (macrursors--inside-secondary-selection)
-		   (overlay-start mouse-secondary-overlay)
-		 (point-min)))
-	(end (if (macrursors--inside-secondary-selection)
-		 (overlay-end mouse-secondary-overlay)
-	       (point-max)))
-	(col (current-column)))
+                   (overlay-start mouse-secondary-overlay)
+                 (point-min)))
+        (end (if (macrursors--inside-secondary-selection)
+                 (overlay-end mouse-secondary-overlay)
+               (point-max)))
+        (col (current-column)))
     (save-excursion
       (while (and (let ((curr (point)))
                     (forward-line -1)
-		    (move-to-column col)
-		    (not (= (point) curr)))
+                    (move-to-column col)
+                    (not (= (point) curr)))
                   (>= (point) start))
-	(macrursors--add-overlay-at-point (point))))
+        (macrursors--add-overlay-at-point (point))))
     (save-excursion
       (while (and (let ((curr (point)))
-		    (forward-line 1)
-		    (move-to-column col)
-		    (not (= (point) curr)))
-		  (< (point) end))
-	(macrursors--add-overlay-at-point (point))))
+                    (forward-line 1)
+                    (move-to-column col)
+                    (not (= (point) curr)))
+                  (< (point) end))
+        (macrursors--add-overlay-at-point (point))))
     (setq macrursors--instance 'line)
     (macrursors-start)))
 
 ;;;###autoload
 (defun macrursors-mark-all-lines-or-instances ()
-  "If a selection exists, mark all instances of the selection.
-Else, mark all lines."
+  "Mark all instances of the active region, or all lines if none."
   (interactive)
   (if (and transient-mark-mode mark-active (not (eq (mark) (point))))
       (macrursors-mark-all-instances-of)
@@ -559,7 +621,10 @@ Else, mark all lines."
 
 ;;;; Functions that apply the defined macro across all macrursors
 (defun macrursors-start ()
-  "Start kmacro recording, apply to all cursors when terminate."
+  "Start keyboard macro recording and apply it to all active cursors.
+
+Initiates kmacro recording. When terminated, the macro will execute
+at each cursor position."
   (interactive)
   (macrursors-mode 1)
   (call-interactively #'kmacro-start-macro))
@@ -595,7 +660,7 @@ Else, mark all lines."
       t)))
 
 (defun macrursors--apply-kmacros ()
-  "Apply kmacros."
+  "Apply the last recorded keyboard macro to all active cursors."
   (interactive)
   (macrursors--wrap-collapse-undo
     (save-excursion
@@ -617,6 +682,9 @@ Else, mark all lines."
 ;; FIXME applying time
 ;;;###autoload
 (defun macrursors-end ()
+  "Terminate keyboard macro recording and execute it across all cursors.
+
+The cursors are removed afterwards."
   (interactive)
   (if (not defining-kbd-macro)
       (error "Not defining a macro")
@@ -633,14 +701,14 @@ Else, mark all lines."
 
 ;;;###autoload
 (defun macrursors-early-quit ()
-  "Used to quit out of recording the macro for the cursors."
+  "Quit macro recording early and remove all cursors."
   (interactive)
   (if (region-active-p)
       (progn
-	(deactivate-mark)
-	(when defining-kbd-macro
-	  (end-kbd-macro)
-	  (macrursors-start)))
+        (deactivate-mark)
+        (when defining-kbd-macro
+          (end-kbd-macro)
+          (macrursors-start)))
     (when defining-kbd-macro (end-kbd-macro))
     (macrursors--remove-overlays)
     (macrursors-mode -1)))
