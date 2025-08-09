@@ -1,3 +1,33 @@
+;;; macrursors-select.el --- Secondary selection manipulation for Macrursors  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2025  Karthik Chikmagalur
+
+;; Author: Karthik Chikmagalur <karthikchikmagalur@gmail.com>
+;; Keywords: convenience, text
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; This package provides the command `macrursors-select' for manipulating the
+;; secondary selection when using Macrursors.  The secondary selection is the
+;; scope in which cursors will be created.  Calling `macrursors-select' multiple
+;; times in sequence will cycle through some mode-appropriate regions, such as
+;; the function, line and list around point.  This set of things is customizable
+;; via `macrursor-select-types'.
+
+;;; Code:
 (require 'macrursors)
 (require 'thingatpt)
 (require 'cl)
@@ -134,3 +164,4 @@ repeatedly by pressing `\\<macrursors-mark-map>\\[macrursors-select]'."
 (define-key macrursors-mark-map (kbd "C-g") #'macrursors-select-clear)
 
 (provide 'macrursors-select)
+;;; macrursors-select.el ends here
