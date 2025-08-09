@@ -83,6 +83,13 @@ and re-enable them in `macrursors-post-finish-hook'."
   :type 'key-sequence
   :group 'macrursors)
 
+(defcustom macrursors-hideshow-delay 0.5
+  "Delay clearing any hideshow (folding) after ending macrursors.
+
+Set to 0 to clear immediately."
+  :type 'number
+  :group 'macrursors)
+
 (defvar-local macrursors--instance nil
   "The thing last used to create macrursors.")
 
@@ -135,13 +142,23 @@ and re-enable them in `macrursors-post-finish-hook'."
     (overlay-put ov 'macrursors-type 'cursor)
     (push ov macrursors--overlays)))
 
+(defsubst macrursors--clear-hideshow-overlays ()
+  (mapc #'delete-overlay macrursors--hideshow-overlays)
+  (setq macrursors--hideshow-overlays nil))
+
 (defun macrursors--remove-overlays ()
   "Remove all overlays from current buffer."
   (mapc #'delete-overlay macrursors--overlays)
   (setq macrursors--overlays nil)
   (when macrursors--hideshow-overlays
-    (mapc #'delete-overlay macrursors--hideshow-overlays)
-    (setq macrursors--hideshow-overlays nil)))
+    (if (and macrursors-hideshow-delay (> macrursors-hideshow-delay 0))
+        (run-at-time
+         macrursors-hideshow-delay nil
+         (lambda (buf) (when (buffer-live-p buf)
+                    (with-current-buffer buf
+                      (macrursors--clear-hideshow-overlays))))
+         (current-buffer))
+      (macrursors--clear-hideshow-overlays))))
 
 (defun macrursors--get-overlay-positions (&optional overlays)
   "Return a list with the position of all the cursors in `macrursors--overlays'.
@@ -189,40 +206,55 @@ beginning and ending positions."
       (list (concat "\\_<" (regexp-quote (substring-no-properties symb)) "\\_>")
             symb-beg symb-end)))))
 
-(defun macrursors--toggle-hideshow-overlay (begin end)
-  (pcase-let ((`(,_ . ,ov) (get-char-property-and-overlay
-                            (1+ begin) 'macrursors-hideshow)))
-    (if ov
-        (move-overlay ov begin end)
-      (setq ov (make-overlay begin end))
-      (overlay-put ov 'macrursors-hideshow t)
-      (push ov macrursors--hideshow-overlays))
-    (overlay-put ov 'display
-                 (if (overlay-get ov 'display) nil
-                   (propertize "⋮\n" 'face 'shadow)))))
+(defun macrursors--update-hideshow-overlays (begin end)
+  "Update hideshow overlays between BEGIN and END.
 
+Remove any obsolete overlays in the process."
+  (if (> begin end)
+      (mapc (lambda (o) (when (overlay-get o 'macrursors-hideshow)
+                          (setq macrursors--hideshow-overlays
+                                (delete o macrursors--hideshow-overlays))
+                          (delete-overlay o)))
+            (overlays-in end begin))
+    (let ((ov (cl-find-if (lambda (ov) (overlay-get ov 'macrursors-hideshow))
+                          (overlays-in begin end))))
+      (if ov
+          (progn (overlay-put ov 'display nil)
+                 (move-overlay ov begin end))
+        (setq ov (make-overlay begin end))
+        (overlay-put ov 'macrursors-hideshow t)
+        (push ov macrursors--hideshow-overlays))
+      (overlay-put ov 'display
+                   (propertize "⋮\n" 'face 'mode-line-emphasis)))))
+
+;;;###autoload
 (defun macrursors-hideshow (&optional context)
+  "Focus on cursor locations, hiding other buffer text.
+
+Prefix arg CONTEXT determines how many lines to show around each cursor.
+The default prefix-arg of 1 toggles the hiding."
   (interactive "p")
   (unless executing-kbd-macro
-    (save-excursion
-      (cl-loop
-       with context = (or (abs context) 1)
-       with end = (point-max)
-       for pos in (cl-sort (cons (point) (macrursors--get-overlay-positions))
-                           #'>)
-       for begin = (progn (goto-char pos)
-                          (forward-line (1+ context))
-                          (point))
-       if (> end begin) do
-       (macrursors--toggle-hideshow-overlay begin end)
-       do
-       (goto-char pos)
-       (forward-line (- context))
-       (setq end (point))
-       finally do
-       (beginning-of-line)
-       (if (> (point) (point-min))
-           (macrursors--toggle-hideshow-overlay (point-min) (point)))))))
+    (if (and macrursors--hideshow-overlays (= context 1))
+        (macrursors--clear-hideshow-overlays)
+      (save-excursion
+        (cl-loop
+         with context = (or (abs context) 1)
+         with end = (point-max)
+         for pos in (cl-sort (cons (point) (macrursors--get-overlay-positions))
+                             #'>)
+         for begin = (progn (goto-char pos)
+                            (forward-line (1+ context))
+                            (point))
+         do
+         (macrursors--update-hideshow-overlays begin end)
+         (goto-char pos)
+         (forward-line (- context))
+         (setq end (point))
+         finally do
+         (beginning-of-line)
+         (if (> (point) (point-min))
+             (macrursors--update-hideshow-overlays (point-min) (point))))))))
 
 (defun macrursors--mark-all-instances-of (string orig-point &optional end)
   (let ((case-fold-search))
