@@ -621,6 +621,8 @@ Else, mark all lines."
   (if (not defining-kbd-macro)
       (error "Not defining a macro")
     (end-kbd-macro)
+    (setq macrursors--overlays
+          (nreverse macrursors--overlays))
     (run-hook-wrapped 'macrursors-pre-finish-hook
                       #'macrursors--toggle-modes -1)
     (macrursors--apply-kmacros)
