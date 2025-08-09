@@ -263,7 +263,7 @@ beginning and ending positions."
     (if (or (not matched-p)
             (> (point) (or end (point-max)))
             (member (point) cursor-positions))
-        (message "No more matches.")
+        (prog1 nil (message "No more matches."))
       (macrursors--add-overlay-at-point (point)))))
 
 ;;;###autoload
@@ -297,8 +297,10 @@ of the buffer."
         (macrursors-start))
        ((stringp region) ; Mark next instance of some string
         (goto-char end)
-        (dotimes (_ arg)
-          (macrursors--mark-next-instance-of region search-end))
+        (if (= arg 0)
+            (while (macrursors--mark-next-instance-of region search-end))
+          (dotimes (_ arg)
+            (macrursors--mark-next-instance-of region search-end)))
         (setq macrursors--instance region)
         (macrursors-start))
        ; No region or symbol-name, mark line
@@ -314,7 +316,7 @@ of the buffer."
     (if (or (not matched)
             (<= (point) (or start (point-min)))
             (member (match-end 0) cursor-positions))
-        (message "No more matches.")
+        (prog1 nil (message "No more matches."))
       (macrursors--add-overlay-at-point (match-end 0)))))
 
 ;;;###autoload
@@ -347,13 +349,15 @@ the beginning of the buffer."
                (delete-overlay (car macrursors--overlays)))
           (cl-callf cdr macrursors--overlays))
         (macrursors-start))
-       ((stringp region) ; Mark next instance of some string
+       ((stringp region) ; Mark previous instance of string
         (goto-char beg)
-        (dotimes (_ arg)
-          (macrursors--mark-previous-instance-of region search-start))
+        (if (= arg 0)
+            (while (macrursors--mark-previous-instance-of region search-start))
+          (dotimes (_ arg)
+            (macrursors--mark-previous-instance-of region search-start)))
         (setq macrursors--instance region)
         (macrursors-start))
-       ; No region or symbol-name, mark line
+       ; No region or symbol-name, mark previous line
        (t (macrursors-mark-previous-line arg search-start))))))
 
 (defun macrursors--forward-number ()
@@ -414,8 +418,10 @@ selection if one exists."
     (goto-char (max (point) isearch-other-end))
     (isearch-exit)
     (save-excursion
-      (dotimes (_ arg)
-        (macrursors--mark-next-instance-of regexp search-end)))
+      (if (= arg 0)
+          (while (macrursors--mark-next-instance-of regexp search-end))
+        (dotimes (_ arg)
+          (macrursors--mark-next-instance-of regexp search-end))))
     (setq macrursors--instance regexp)
     (macrursors-start)))
 
@@ -440,8 +446,10 @@ selection if one exists."
     (isearch-exit)
     (save-excursion
       (goto-char orig-point)
-      (dotimes (_ arg)
-        (macrursors--mark-previous-instance-of regexp search-start)))
+      (if (= arg 0)
+          (while (macrursors--mark-previous-instance-of regexp search-start))
+        (dotimes (_ arg)
+          (macrursors--mark-previous-instance-of regexp search-start))))
     (setq macrursors--instance regexp)
     (macrursors-start)))
 
@@ -529,20 +537,27 @@ SEARCH-END is a bound."
   (let ((col (current-column))
         bounded)
     (save-excursion
-      (if (< arg 0)
-          (dotimes (_ (- arg))
-            (and macrursors--overlays
-                 (delete-overlay (car macrursors--overlays)))
-            (cl-callf cdr macrursors--overlays))
-        (dotimes (_ arg)
-          (while (and (setq bounded
-                            (and (line-move-1 1 'no-error)
-                                 (move-to-column col)
-                                 (<= (point) (or search-end (point-max)))))
-                      (member (point) (macrursors--get-overlay-positions))))
-          (if bounded
-              (macrursors--add-overlay-at-point (point))
-            (message "No more lines below."))))
+      (cond
+       ((< arg 0)
+        (dotimes (_ (- arg))
+          (and macrursors--overlays
+               (delete-overlay (car macrursors--overlays)))
+          (cl-callf cdr macrursors--overlays)))
+       ((= arg 0)
+        (while (and (line-move-1 1 'no-error)
+                    (move-to-column col)
+                    (< (point) (or search-end (point-max)))
+                    (macrursors--add-overlay-at-point (point)))
+          (setq bounded t)))
+       (t (dotimes (_ arg)
+           (while (and (setq bounded
+                             (and (line-move-1 1 'no-error)
+                                  (move-to-column col)
+                                  (< (point) (or search-end (point-max)))))
+                       (member (point) (macrursors--get-overlay-positions))))
+           (if bounded
+               (macrursors--add-overlay-at-point (point))
+             (message "No more lines below.")))))
       (when bounded
         (setq macrursors--instance 'line)
         (macrursors-start)))))
@@ -564,20 +579,27 @@ SEARCH-BEG is a bound."
   (let ((col (current-column))
         bounded)
     (save-excursion
-      (if (< arg 0)
-          (dotimes (_ (- arg))
-            (and macrursors--overlays
-                 (delete-overlay (car macrursors--overlays)))
-            (cl-callf cdr macrursors--overlays))
-        (dotimes (_ arg)
-          (while (and (setq bounded
-                            (and (line-move-1 -1 'no-error)
-                                 (move-to-column col)
-                                 (>= (point) (or search-beg (point-min)))))
-                      (member (point) (macrursors--get-overlay-positions))))
-          (if bounded
-              (macrursors--add-overlay-at-point (point))
-            (message "No more lines above."))))
+      (cond
+       ((< arg 0)
+        (dotimes (_ (- arg))
+          (and macrursors--overlays
+               (delete-overlay (car macrursors--overlays)))
+          (cl-callf cdr macrursors--overlays)))
+       ((= arg 0)
+        (while (and (line-move-1 -1 'no-error)
+                    (move-to-column col)
+                    (>= (point) (or search-beg (point-min)))
+                    (macrursors--add-overlay-at-point (point)))
+          (setq bounded t)))
+       (t (dotimes (_ arg)
+            (while (and (setq bounded
+                              (and (line-move-1 -1 'no-error)
+                                   (move-to-column col)
+                                   (>= (point) (or search-beg (point-min)))))
+                        (member (point) (macrursors--get-overlay-positions))))
+            (if bounded
+                (macrursors--add-overlay-at-point (point))
+              (message "No more lines above.")))))
       (when bounded
         (setq macrursors--instance 'line)
         (macrursors-start)))))
